@@ -57,7 +57,7 @@ TagDetector::TagDetector(rclcpp::Node::SharedPtr nh)
     refine_edges_ = nh->declare_parameter<int>("tag_refine_edges", 1);
     debug_ = nh->declare_parameter<int>("tag_debug", 0);
     max_hamming_distance_ = nh->declare_parameter<int>("max_hamming_dist", 2);
-    publish_tf_ = nh->declare_parameter<bool>("publish_tf", false);
+    publish_tf_ = nh->declare_parameter<bool>("publish_tf", true);
     remove_duplicates_ = nh_->declare_parameter<bool>("remove_duplicates", true);
     std::string tags_yaml = nh_->declare_parameter<std::string>("tags_yaml_path", "");
 
@@ -463,7 +463,7 @@ apriltag_ros_interfaces::msg::AprilTagDetectionArray TagDetector::detectTags (
             tag_transform.transform.rotation.z = pose.pose.orientation.z;
             tag_transform.transform.rotation.w = pose.pose.orientation.w;
 
-            tag_transform.child_frame_id = std::to_string(tag_detection_array.detections[i].id[0]);
+            tag_transform.child_frame_id = detection_names[i];
 
             tag_transform.header = pose.header;
 
