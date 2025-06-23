@@ -46,8 +46,9 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
     std::string image_topic = nh_->declare_parameter<std::string>("image_topic", "color/image_raw");
     int queue_size = nh_->declare_parameter<int>("queue_size", 1);
     std::string tag_detections_topic = nh_->declare_parameter<std::string>("tag_detections_topic", "tag_detections");
-    
+    std::string state_diag_topic = nh_->declare_parameter<std::string>("state_diag_topic", "state_diag");
     tag_detector_ = std::shared_ptr<TagDetector>(new TagDetector(nh_));
+    detection_enabled = false;
 
 
     // Image_transport
@@ -60,6 +61,9 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
 
     tag_detections_publisher_ = nh_->create_publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>(tag_detections_topic, 10);
 
+    state_diag_subscriber_ = nh_->create_subscription<DiagnosticArrayMsg>(state_diag_topic, 10, 
+        std::bind(&ContinuousDetector::StateDiagCallback, this , std::placeholders::_1));
+
     if (draw_tag_detections_image_)
     {
         tag_detections_image_publisher_ = it_->advertise(tag_detections_image_topic, 1);
@@ -67,6 +71,19 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
 
 }
 
+void ContinuousDetector::StateDiagCallback(
+    const DiagnosticArrayMsg::ConstSharedPtr& msg)
+{
+    // Check if the state is ready to detect tags
+    if (msg->status.size() > 0 && msg->status[0].values[0].key == "IN_APRES_MOTION")
+    {
+        detection_enabled = true;
+    }
+    else
+    {
+        detection_enabled = false;
+    }
+}
 
 void ContinuousDetector::ImageCallback (
     const sensor_msgs::msg::Image::ConstSharedPtr& image_rect,
@@ -74,6 +91,11 @@ void ContinuousDetector::ImageCallback (
 {
     // Convert ROS's sensor_msgs::Image to cv_bridge::CvImagePtr in order to run
     // AprilTag 2 on the iamge
+    if (!detection_enabled)
+    {
+        RCLCPP_DEBUG(nh_->get_logger(), "Detection is disabled, skipping image processing.");
+        return;
+    }
     try
     {
         cv_image_ = cv_bridge::toCvCopy(image_rect, image_rect->encoding);

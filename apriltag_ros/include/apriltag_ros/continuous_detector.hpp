@@ -53,6 +53,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.hpp>
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "diagnostic_msgs/msg/key_value.hpp"
 
 // Own
 #include "apriltag_ros_interfaces/msg/april_tag_detection.hpp"
@@ -64,6 +67,9 @@ namespace apriltag_ros
 class ContinuousDetector
 {
     public:
+        using DiagnosticArrayMsg = diagnostic_msgs::msg::DiagnosticArray;
+        using DiagnosticStatusMsg = diagnostic_msgs::msg::DiagnosticStatus;
+
     	COMPOSITION_PUBLIC 
         explicit ContinuousDetector(const rclcpp::NodeOptions & options);
 
@@ -73,6 +79,11 @@ class ContinuousDetector
 
         void ImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& image,
                         const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info);
+
+        void StateDiagCallback(
+            const DiagnosticArrayMsg::ConstSharedPtr& msg);
+
+        bool detection_enabled;
 
         rclcpp::Node::SharedPtr nh_;
         rclcpp::QoS custom_qos_;
@@ -84,6 +95,7 @@ class ContinuousDetector
 
         std::shared_ptr<image_transport::ImageTransport> it_;
         image_transport::CameraSubscriber camera_image_subscriber_;
+        rclcpp::Subscription<DiagnosticArrayMsg>::SharedPtr state_diag_subscriber_;
         image_transport::Publisher tag_detections_image_publisher_;
         rclcpp::Publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>::SharedPtr tag_detections_publisher_;
 

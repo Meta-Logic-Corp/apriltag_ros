@@ -21,6 +21,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(apriltag_ros_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(rcutils REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -51,6 +52,7 @@ set(dependencies
   yaml-cpp
   geometry_msgs
   std_msgs
+  diagnostic_msgs
 )
 
 
@@ -88,6 +90,7 @@ ament_target_dependencies(${PROJECT_NAME}
                           yaml-cpp
                           geometry_msgs
                           std_msgs
+                          diagnostic_msgs
 )
 
 # Register nodes
