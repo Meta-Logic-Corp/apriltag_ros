@@ -61,6 +61,8 @@
 #include "apriltag_ros_interfaces/msg/april_tag_detection.hpp"
 #include "apriltag_ros_interfaces/msg/april_tag_detection_array.hpp"
 
+#include "lpv_interfaces/msg/apriltag_observer.hpp"
+
 namespace apriltag_ros
 {
 
@@ -69,6 +71,8 @@ class ContinuousDetector
     public:
         using DiagnosticArrayMsg = diagnostic_msgs::msg::DiagnosticArray;
         using DiagnosticStatusMsg = diagnostic_msgs::msg::DiagnosticStatus;
+        using ApriltagToggleMsg = lpv_interfaces::msg::ApriltagObserver;
+        using AprilTagDetectionArray = apriltag_ros_interfaces::msg::AprilTagDetectionArray;
 
     	COMPOSITION_PUBLIC 
         explicit ContinuousDetector(const rclcpp::NodeOptions & options);
@@ -80,8 +84,8 @@ class ContinuousDetector
         void ImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& image,
                         const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info);
 
-        void StateDiagCallback(
-            const DiagnosticArrayMsg::ConstSharedPtr& msg);
+        void ApriltagToggleCallback(
+            const ApriltagToggleMsg::ConstSharedPtr& msg);
 
         bool detection_enabled;
 
@@ -93,9 +97,12 @@ class ContinuousDetector
         bool draw_tag_detections_image_;
         cv_bridge::CvImagePtr cv_image_;
 
+        std::string camera_position;
+        bool tag_detected;
+
         std::shared_ptr<image_transport::ImageTransport> it_;
         image_transport::CameraSubscriber camera_image_subscriber_;
-        rclcpp::Subscription<DiagnosticArrayMsg>::SharedPtr state_diag_subscriber_;
+        rclcpp::Subscription<ApriltagToggleMsg>::SharedPtr apriltag_toggle_sub_;
         image_transport::Publisher tag_detections_image_publisher_;
         rclcpp::Publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>::SharedPtr tag_detections_publisher_;
 

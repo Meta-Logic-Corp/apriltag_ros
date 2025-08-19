@@ -34,6 +34,7 @@ find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(image_geometry REQUIRED)
+find_package(lpv_interfaces REQUIRED)
 
 set(dependencies
   rclcpp
@@ -53,6 +54,7 @@ set(dependencies
   geometry_msgs
   std_msgs
   diagnostic_msgs
+  lpv_interfaces
 )
 
 
@@ -91,6 +93,7 @@ ament_target_dependencies(${PROJECT_NAME}
                           geometry_msgs
                           std_msgs
                           diagnostic_msgs
+                          lpv_interfaces
 )
 
 # Register nodes
