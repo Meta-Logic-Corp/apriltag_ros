@@ -47,6 +47,8 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
     int queue_size = nh_->declare_parameter<int>("queue_size", 1);
     std::string tag_detections_topic = nh_->declare_parameter<std::string>("tag_detections_topic", "tag_detections");
     std::string state_diag_topic = nh_->declare_parameter<std::string>("state_diag_topic", "state_diag");
+    std::string apriltag_toggle_topic = nh_->declare_parameter<std::string>("apriltag_toggle_topic", "apriltag_toggle");
+    camera_position = nh_->declare_parameter<std::string>("camera_position", "camera_position");
     tag_detector_ = std::shared_ptr<TagDetector>(new TagDetector(nh_));
     detection_enabled = false;
 
@@ -61,8 +63,8 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
 
     tag_detections_publisher_ = nh_->create_publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>(tag_detections_topic, 10);
 
-    state_diag_subscriber_ = nh_->create_subscription<DiagnosticArrayMsg>(state_diag_topic, 10, 
-        std::bind(&ContinuousDetector::StateDiagCallback, this , std::placeholders::_1));
+    apriltag_toggle_sub_ = nh_->create_subscription<ApriltagToggleMsg>(apriltag_toggle_topic, 10,
+        std::bind(&ContinuousDetector::ApriltagToggleCallback, this , std::placeholders::_1));
 
     if (draw_tag_detections_image_)
     {
@@ -71,17 +73,22 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
 
 }
 
-void ContinuousDetector::StateDiagCallback(
-    const DiagnosticArrayMsg::ConstSharedPtr& msg)
+void ContinuousDetector::ApriltagToggleCallback(
+    const ApriltagToggleMsg::ConstSharedPtr& msg)
 {
     // Check if the state is ready to detect tags
-    if (msg->status.size() > 0 && msg->status[0].values[0].key == "IN_APRES_MOTION")
+    if (detection_enabled == false && msg->spin_observer == true)
     {
-        detection_enabled = true;
+        detection_enabled = msg->spin_observer;
+        tag_detected = false;
     }
-    else
+    else if (detection_enabled == true && msg->spin_observer == false)
     {
         detection_enabled = false;
+        if (!tag_detected && camera_position == msg->camera_id){
+            RCLCPP_WARN(nh_->get_logger(), "No tags detected, restarting");
+            throw std::runtime_error("No apriltags detected");
+        }
     }
 }
 
@@ -107,9 +114,11 @@ void ContinuousDetector::ImageCallback (
     }
 
     // Publish detected tags in the image by AprilTag 2
-    tag_detections_publisher_->publish(
-        tag_detector_->detectTags(cv_image_,camera_info));
-
+    AprilTagDetectionArray apriltag_msg = tag_detector_->detectTags(cv_image_,camera_info);
+    tag_detections_publisher_->publish(apriltag_msg);
+    if (apriltag_msg.detections.size() > 0){
+        tag_detected = true;
+    }
     // Publish the camera image overlaid by outlines of the detected tags and
     // their payload values
     if (draw_tag_detections_image_)
