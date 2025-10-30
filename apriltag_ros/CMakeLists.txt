@@ -14,6 +14,9 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -lgtest -lgmock -g)
 endif()
+link_directories(/usr/lib/aarch64-linux-gnu/nvidia /usr/lib/aarch64-linux-gnu/tegra)
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -35,7 +38,12 @@ find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(lpv_interfaces REQUIRED)
+find_package(isaac_ros_managed_nitros REQUIRED)
+find_package(isaac_ros_nitros REQUIRED)
+find_package(isaac_ros_nitros_image_type REQUIRED)
+find_package(isaac_ros_common REQUIRED)
 
+message($(vpi_DIR))
 set(dependencies
   rclcpp
   rclcpp_components
@@ -55,6 +63,9 @@ set(dependencies
   std_msgs
   diagnostic_msgs
   lpv_interfaces
+  isaac_ros_nitros
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
 )
 
 
@@ -94,6 +105,9 @@ ament_target_dependencies(${PROJECT_NAME}
                           std_msgs
                           diagnostic_msgs
                           lpv_interfaces
+                          isaac_ros_nitros
+                          isaac_ros_managed_nitros
+                          isaac_ros_nitros_image_type
 )
 
 # Register nodes
@@ -129,4 +143,5 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 ) 
 
-ament_package()
+#ament_package()
+ament_auto_package()

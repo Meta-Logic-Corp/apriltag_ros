@@ -56,6 +56,10 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "diagnostic_msgs/msg/key_value.hpp"
+#include "std_msgs/msg/bool.hpp"
+
+#include <isaac_ros_managed_nitros/managed_nitros_subscriber.hpp>
+#include <isaac_ros_nitros_image_type/nitros_image_view.hpp>
 
 // Own
 #include "apriltag_ros_interfaces/msg/april_tag_detection.hpp"
@@ -76,17 +80,18 @@ class ContinuousDetector
 
     	COMPOSITION_PUBLIC 
         explicit ContinuousDetector(const rclcpp::NodeOptions & options);
-
         COMPOSITION_PUBLIC
         rclcpp::node_interfaces::NodeBaseInterface::SharedPtr
         get_node_base_interface() const;
 
-        void ImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& image,
-                        const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info);
+        void ImageCallback(const nvidia::isaac_ros::nitros::NitrosImageView & view);
+
+        void CameraInfoCallback(
+            const sensor_msgs::msg::CameraInfo::ConstSharedPtr & msg);
 
         void ApriltagToggleCallback(
-            const ApriltagToggleMsg::ConstSharedPtr& msg);
-
+            const ApriltagToggleMsg::ConstSharedPtr & msg);
+            
         bool detection_enabled;
 
         rclcpp::Node::SharedPtr nh_;
@@ -99,12 +104,16 @@ class ContinuousDetector
 
         std::string camera_position;
         bool tag_detected;
-
+        sensor_msgs::msg::CameraInfo::ConstSharedPtr camera_info_;
+        rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
+        std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
+            nvidia::isaac_ros::nitros::NitrosImageView>> nitros_sub_;
         std::shared_ptr<image_transport::ImageTransport> it_;
         image_transport::CameraSubscriber camera_image_subscriber_;
         rclcpp::Subscription<ApriltagToggleMsg>::SharedPtr apriltag_toggle_sub_;
         image_transport::Publisher tag_detections_image_publisher_;
         rclcpp::Publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>::SharedPtr tag_detections_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr camera_reset_publisher_;
 
 };
 

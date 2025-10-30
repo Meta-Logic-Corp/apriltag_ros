@@ -38,6 +38,7 @@ using namespace apriltag_ros;
 ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
 : nh_(std::make_shared<rclcpp::Node>("apriltag_node", options)), custom_qos_(1)
 {
+    using std::placeholders::_1;
     rclcpp::uninstall_signal_handlers();
 
     // Declare and get parameters
@@ -51,15 +52,28 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
     camera_position = nh_->declare_parameter<std::string>("camera_position", "camera_position");
     tag_detector_ = std::shared_ptr<TagDetector>(new TagDetector(nh_));
     detection_enabled = false;
+    RCLCPP_INFO(nh_->get_logger(), "Starting apriltag_ros ContinuousDetector node with image topic: %s", image_topic.c_str());
 
 
     // Image_transport
     it_ = std::shared_ptr<image_transport::ImageTransport>(
         new image_transport::ImageTransport(nh_));
 
-    camera_image_subscriber_ = it_->subscribeCamera(image_topic, queue_size,
-                            &ContinuousDetector::ImageCallback, this,
-                            new image_transport::TransportHints(nh_.get(), "raw", "transport_hint"));
+    nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
+        nvidia::isaac_ros::nitros::NitrosImageView>>(
+      nh_.get(), image_topic, nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
+      std::bind(&ContinuousDetector::ImageCallback, this,
+      std::placeholders::_1));
+
+    camera_reset_publisher_ = nh_->create_publisher<std_msgs::msg::Bool>(
+        "camera_reset", 10);
+
+    
+    camera_info_sub_ = nh_->create_subscription<sensor_msgs::msg::CameraInfo>(
+      image_topic + "/camera_info", 10,
+      std::bind(&ContinuousDetector::CameraInfoCallback, this, std::placeholders::_1));
+    camera_info_ = nullptr;
+
 
     tag_detections_publisher_ = nh_->create_publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>(tag_detections_topic, 10);
 
@@ -71,6 +85,12 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
         tag_detections_image_publisher_ = it_->advertise(tag_detections_image_topic, 1);
     }
 
+}
+
+void ContinuousDetector::CameraInfoCallback(
+  const sensor_msgs::msg::CameraInfo::ConstSharedPtr & msg)
+{
+    camera_info_ = msg;
 }
 
 void ContinuousDetector::ApriltagToggleCallback(
@@ -87,14 +107,13 @@ void ContinuousDetector::ApriltagToggleCallback(
         detection_enabled = false;
         if (!tag_detected && camera_position == msg->camera_id){
             RCLCPP_WARN(nh_->get_logger(), "No tags detected, restarting");
-            throw std::runtime_error("No apriltags detected");
+            camera_reset_publisher_->publish(std_msgs::msg::Bool());
         }
     }
 }
 
 void ContinuousDetector::ImageCallback (
-    const sensor_msgs::msg::Image::ConstSharedPtr& image_rect,
-    const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info)
+    const nvidia::isaac_ros::nitros::NitrosImageView & view)
 {
     // Convert ROS's sensor_msgs::Image to cv_bridge::CvImagePtr in order to run
     // AprilTag 2 on the iamge
@@ -103,9 +122,25 @@ void ContinuousDetector::ImageCallback (
         RCLCPP_DEBUG(nh_->get_logger(), "Detection is disabled, skipping image processing.");
         return;
     }
+    if (!camera_info_)
+    {
+        RCLCPP_WARN(nh_->get_logger(), "No camera info received yet, skipping image processing.");
+        return;
+    }
     try
     {
-        cv_image_ = cv_bridge::toCvCopy(image_rect, image_rect->encoding);
+        sensor_msgs::msg::Image image_rect;
+        image_rect.header.frame_id = view.GetFrameId();
+        image_rect.header.stamp.sec = view.GetTimestampSeconds();
+        image_rect.header.stamp.nanosec = view.GetTimestampNanoseconds();
+        image_rect.height = view.GetHeight();
+        image_rect.width = view.GetWidth();
+        image_rect.encoding = view.GetEncoding();
+        image_rect.step = view.GetSizeInBytes() / view.GetHeight();
+
+        image_rect.data.resize(view.GetSizeInBytes());
+        cudaMemcpy(image_rect.data.data(), view.GetGpuData(), view.GetSizeInBytes(), cudaMemcpyDefault);
+        cv_image_ = cv_bridge::toCvCopy(image_rect, image_rect.encoding);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -114,7 +149,7 @@ void ContinuousDetector::ImageCallback (
     }
 
     // Publish detected tags in the image by AprilTag 2
-    AprilTagDetectionArray apriltag_msg = tag_detector_->detectTags(cv_image_,camera_info);
+    AprilTagDetectionArray apriltag_msg = tag_detector_->detectTags(cv_image_, camera_info_);
     tag_detections_publisher_->publish(apriltag_msg);
     if (apriltag_msg.detections.size() > 0){
         tag_detected = true;
