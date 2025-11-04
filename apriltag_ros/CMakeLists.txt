@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(apriltag_ros)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
@@ -16,6 +14,9 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -lgtest -lgmock -g)
 endif()
+link_directories(/usr/lib/aarch64-linux-gnu/nvidia /usr/lib/aarch64-linux-gnu/tegra)
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -41,26 +42,8 @@ find_package(isaac_ros_managed_nitros REQUIRED)
 find_package(isaac_ros_nitros REQUIRED)
 find_package(isaac_ros_nitros_image_type REQUIRED)
 find_package(isaac_ros_common REQUIRED)
-find_package(CUDA REQUIRED)
 
-set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
-
-find_package(ament_cmake_auto REQUIRED)
-ament_auto_find_build_dependencies()
-
-# LIBS
-
-
-# create ament index resource which references the libraries in the binary dir
-set(node_plugins "")
-
-link_directories(${CUDA_LIBRARY_DIRS})
-
-set(APRIL_LIBS
-  ${CUDA_LIBRARIES}
-)
-
-
+message($(vpi_DIR))
 set(dependencies
   rclcpp
   rclcpp_components
@@ -83,7 +66,6 @@ set(dependencies
   isaac_ros_nitros
   isaac_ros_managed_nitros
   isaac_ros_nitros_image_type
-  isaac_ros_common
 )
 
 
@@ -99,11 +81,7 @@ add_library(${PROJECT_NAME} SHARED
   "src/common_functions.cpp"
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC
-    ${CUDA_INCLUDE_DIRS}
-)
-
-target_link_libraries(${PROJECT_NAME} yaml-cpp apriltag ${APRIL_LIBS})
+target_link_libraries(${PROJECT_NAME} yaml-cpp apriltag)
 
 target_compile_definitions(${PROJECT_NAME}
                            PRIVATE "COMPOSITION_BUILDING_DLL")
@@ -130,13 +108,11 @@ ament_target_dependencies(${PROJECT_NAME}
                           isaac_ros_nitros
                           isaac_ros_managed_nitros
                           isaac_ros_nitros_image_type
-                          isaac_ros_common
 )
 
 # Register nodes
 rclcpp_components_register_node(${PROJECT_NAME} PLUGIN "apriltag_ros::ContinuousDetector" EXECUTABLE ContinuousDetector)
 rclcpp_components_register_node(${PROJECT_NAME} PLUGIN "apriltag_ros::SingleImageDetector" EXECUTABLE SingleImageDetector)
-set(node_plugins "${node_plugins}apriltag_ros::ContinuousDetector;$<TARGET_FILE:ContinuousDetector>\n")
 
 # Build executables
 add_executable(single_image_client src/apriltag_ros_single_image_client_node.cpp) 
@@ -167,5 +143,5 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 ) 
 
-ament_export_dependencies(${dependencies})
-ament_package()
+#ament_package()
+ament_auto_package()

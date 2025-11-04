@@ -33,6 +33,9 @@
   <depend>std_msgs</depend>
   <depend>diagnostic_msgs</depend>
   <depend>lpv_interfaces</depend>
+  <depend>magic_enum</depend>
+  <depend>isaac_ros_managed_nitros</depend>
+  <build_depend>isaac_ros_common</build_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
