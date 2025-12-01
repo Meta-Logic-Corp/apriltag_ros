@@ -66,7 +66,7 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
       std::placeholders::_1));
 
     camera_reset_publisher_ = nh_->create_publisher<std_msgs::msg::Bool>(
-        "camera_reset", 10);
+        "/front/camera_reset", 10);
 
     
     camera_info_sub_ = nh_->create_subscription<sensor_msgs::msg::CameraInfo>(
