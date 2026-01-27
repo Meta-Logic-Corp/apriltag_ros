@@ -46,6 +46,7 @@
 // C++
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 
 #include "apriltag_ros/common_functions.hpp"
 #include "apriltag_ros/composition_visibility.h"
@@ -65,6 +66,7 @@
 #include "apriltag_ros_interfaces/msg/april_tag_detection.hpp"
 #include "apriltag_ros_interfaces/msg/april_tag_detection_array.hpp"
 
+#include "apriltag_ros/camera_component.hpp"
 #include "lpv_interfaces/msg/apriltag_observer.hpp"
 
 namespace apriltag_ros
@@ -103,6 +105,10 @@ class ContinuousDetector
         cv_bridge::CvImagePtr cv_image_;
 
         std::string camera_position;
+        // std::unordered_map<std::string, std::string> dir_map;
+        std::unordered_map<CameraPosition, std::shared_ptr<CameraComponent>> camera_map;
+        std::vector<CameraPosition> cameras;
+
         bool tag_detected;
         sensor_msgs::msg::CameraInfo::ConstSharedPtr camera_info_;
         rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;

@@ -5,7 +5,7 @@ project(apriltag_ros)
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
-
+set(CMAKE_CXX_STANDARD 20)
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -79,6 +79,7 @@ add_library(${PROJECT_NAME} SHARED
   "src/continuous_detector.cpp"
   "src/single_image_detector.cpp"
   "src/common_functions.cpp"
+  "src/camera_component.cpp"
 )
 
 target_link_libraries(${PROJECT_NAME} yaml-cpp apriltag)
