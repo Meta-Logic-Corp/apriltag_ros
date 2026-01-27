@@ -54,28 +54,24 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
     detection_enabled = false;
     RCLCPP_INFO(nh_->get_logger(), "Starting apriltag_ros ContinuousDetector node with image topic: %s", image_topic.c_str());
 
+    cameras = {
+        CameraPosition::FRONT,
+        CameraPosition::BACK,
+        CameraPosition::LEFT,
+        CameraPosition::RIGHT
+    };
+
+    camera_map.insert({CameraPosition::FRONT, std::make_shared<CameraComponent>(nh_, CameraPosition::FRONT, tag_detector_)});
+    camera_map.insert({CameraPosition::BACK, std::make_shared<CameraComponent>(nh_, CameraPosition::BACK, tag_detector_)});
+    camera_map.insert({CameraPosition::LEFT, std::make_shared<CameraComponent>(nh_, CameraPosition::LEFT, tag_detector_)});
+    camera_map.insert({CameraPosition::RIGHT, std::make_shared<CameraComponent>(nh_, CameraPosition::RIGHT, tag_detector_)});
 
     // Image_transport
     it_ = std::shared_ptr<image_transport::ImageTransport>(
         new image_transport::ImageTransport(nh_));
 
-    nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        nvidia::isaac_ros::nitros::NitrosImageView>>(
-      nh_.get(), image_topic, nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
-      std::bind(&ContinuousDetector::ImageCallback, this,
-      std::placeholders::_1));
-
     camera_reset_publisher_ = nh_->create_publisher<std_msgs::msg::Bool>(
         "/front/camera_reset", 10);
-
-    
-    camera_info_sub_ = nh_->create_subscription<sensor_msgs::msg::CameraInfo>(
-      image_topic + "/camera_info", 10,
-      std::bind(&ContinuousDetector::CameraInfoCallback, this, std::placeholders::_1));
-    camera_info_ = nullptr;
-
-
-    tag_detections_publisher_ = nh_->create_publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>(tag_detections_topic, 10);
 
     apriltag_toggle_sub_ = nh_->create_subscription<ApriltagToggleMsg>(apriltag_toggle_topic, 10,
         std::bind(&ContinuousDetector::ApriltagToggleCallback, this , std::placeholders::_1));
@@ -100,11 +96,21 @@ void ContinuousDetector::ApriltagToggleCallback(
     if (detection_enabled == false && msg->spin_observer == true)
     {
         detection_enabled = msg->spin_observer;
+        for (auto const& camera : cameras){
+            camera_map[camera]->detection_enabled = true;
+        }
         tag_detected = false;
     }
     else if (detection_enabled == true && msg->spin_observer == false)
     {
         detection_enabled = false;
+        for (auto const& camera : cameras){
+            camera_map[camera]->detection_enabled = false;
+            if (camera_map[camera]->tag_detected) {
+                tag_detected = true;
+                camera_map[camera]->tag_detected = false;
+            }
+        }
         if (!tag_detected && camera_position == msg->camera_id){
             RCLCPP_WARN(nh_->get_logger(), "No tags detected, restarting");
             camera_reset_publisher_->publish(std_msgs::msg::Bool());
