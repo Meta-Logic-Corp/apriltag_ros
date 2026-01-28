@@ -5,20 +5,22 @@ using namespace apriltag_ros;
 CameraComponent::CameraComponent(
     std::shared_ptr<rclcpp::Node> nh,
     CameraPosition camera_position,
-    std::shared_ptr<TagDetector> tag_detector) :
+    std::shared_ptr<TagDetector> tag_detector,
+    std::shared_ptr<std::unordered_map<CameraPosition, bool>> target_tag_detected_map,
+    std::shared_ptr<uint32_t> target_id) :
     nh_(std::move(nh)),
-     camera_position_(camera_position),
-     tag_detector_(std::move(tag_detector))
+    camera_position_(camera_position),
+    tag_detector_(std::move(tag_detector)),
+    target_tag_detected_map_(std::move(target_tag_detected_map)),
+    target_id_(std::move(target_id))
     {
     std::string tag_detections_topic = nh_->get_parameter("tag_detections_topic").as_string();
     std::string image_topic = nh_->get_parameter("image_topic").as_string();
 
-    std::unordered_map<CameraPosition, std::string> camera_position_map = {
-        {CameraPosition::FRONT, "front"},
-        {CameraPosition::BACK, "back"},
-        {CameraPosition::LEFT, "left"},
-        {CameraPosition::RIGHT, "right"}
-    };
+    camera_position_map.insert({CameraPosition::FRONT, "front"});
+    camera_position_map.insert({CameraPosition::BACK, "back"});
+    camera_position_map.insert({CameraPosition::LEFT, "left"});
+    camera_position_map.insert({CameraPosition::RIGHT, "right"});
 
     nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosImageView>>(
@@ -27,8 +29,8 @@ CameraComponent::CameraComponent(
         std::bind(&CameraComponent::ImageCallback, this,
         std::placeholders::_1));
     camera_info_sub_ = nh_->create_subscription<sensor_msgs::msg::CameraInfo>(
-      std::string("/") + camera_position_map.at(camera_position_).c_str() + image_topic + std::string("/camera_info"), 10,
-      std::bind(&CameraComponent::CameraInfoCallback, this, std::placeholders::_1));
+        std::string("/") + camera_position_map.at(camera_position_).c_str() + image_topic + std::string("/camera_info"), 10,
+        std::bind(&CameraComponent::CameraInfoCallback, this, std::placeholders::_1));
 
     tag_detections_publisher_ = nh_->create_publisher<
         apriltag_ros_interfaces::msg::AprilTagDetectionArray>(
@@ -50,6 +52,12 @@ void CameraComponent::ImageCallback (
     {
         RCLCPP_DEBUG(nh_->get_logger(), "Detection is disabled, skipping image processing.");
         return;
+    }
+    for (const auto& [position, target_tag_detected] : *target_tag_detected_map_){
+        if (target_tag_detected && position != camera_position_){
+            RCLCPP_WARN(nh_->get_logger(), "Tag already detected by %s camera, skipping image processing.", camera_position_map.at(position).c_str());
+            return;
+        }
     }
     if (!camera_info_)
     {
@@ -82,5 +90,11 @@ void CameraComponent::ImageCallback (
     tag_detections_publisher_->publish(apriltag_msg);
     if (apriltag_msg.detections.size() > 0){
         tag_detected = true;
+        for (const auto& detection : apriltag_msg.detections) {
+            if (detection.id[0] == *target_id_) {
+                RCLCPP_INFO(nh_->get_logger(), "Target tag ID %d detected by %s camera.", detection.id[0],camera_position_map.at(camera_position_).c_str());
+                target_tag_detected_map_->at(camera_position_) = true;
+            }
+        }
     }
 }

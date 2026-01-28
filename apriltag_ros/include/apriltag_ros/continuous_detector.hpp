@@ -105,8 +105,9 @@ class ContinuousDetector
         cv_bridge::CvImagePtr cv_image_;
 
         std::string camera_position;
-        // std::unordered_map<std::string, std::string> dir_map;
+        std::shared_ptr<uint32_t> target_id;
         std::unordered_map<CameraPosition, std::shared_ptr<CameraComponent>> camera_map;
+        std::shared_ptr<std::unordered_map<CameraPosition, bool>> target_tag_detected_map;
         std::vector<CameraPosition> cameras;
 
         bool tag_detected;

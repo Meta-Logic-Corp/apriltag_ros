@@ -61,11 +61,22 @@ ContinuousDetector::ContinuousDetector(const rclcpp::NodeOptions & options)
         CameraPosition::RIGHT
     };
 
-    camera_map.insert({CameraPosition::FRONT, std::make_shared<CameraComponent>(nh_, CameraPosition::FRONT, tag_detector_)});
-    camera_map.insert({CameraPosition::BACK, std::make_shared<CameraComponent>(nh_, CameraPosition::BACK, tag_detector_)});
-    camera_map.insert({CameraPosition::LEFT, std::make_shared<CameraComponent>(nh_, CameraPosition::LEFT, tag_detector_)});
-    camera_map.insert({CameraPosition::RIGHT, std::make_shared<CameraComponent>(nh_, CameraPosition::RIGHT, tag_detector_)});
+    target_id = std::make_shared<uint32_t>(ApriltagToggleMsg::TAG36_H11_0);
 
+    target_tag_detected_map = std::make_shared<std::unordered_map<CameraPosition, bool>>();
+    target_tag_detected_map->insert({CameraPosition::FRONT, false});
+    target_tag_detected_map->insert({CameraPosition::BACK, false});
+    target_tag_detected_map->insert({CameraPosition::LEFT, false});
+    target_tag_detected_map->insert({CameraPosition::RIGHT, false});
+
+    camera_map.insert({CameraPosition::FRONT,
+         std::make_shared<CameraComponent>(nh_, CameraPosition::FRONT, tag_detector_, target_tag_detected_map, target_id)});
+    camera_map.insert({CameraPosition::BACK,
+         std::make_shared<CameraComponent>(nh_, CameraPosition::BACK, tag_detector_, target_tag_detected_map, target_id)});
+    camera_map.insert({CameraPosition::LEFT,
+         std::make_shared<CameraComponent>(nh_, CameraPosition::LEFT, tag_detector_, target_tag_detected_map, target_id)});
+    camera_map.insert({CameraPosition::RIGHT,
+         std::make_shared<CameraComponent>(nh_, CameraPosition::RIGHT, tag_detector_, target_tag_detected_map, target_id)});
     // Image_transport
     it_ = std::shared_ptr<image_transport::ImageTransport>(
         new image_transport::ImageTransport(nh_));
@@ -96,6 +107,8 @@ void ContinuousDetector::ApriltagToggleCallback(
     if (detection_enabled == false && msg->spin_observer == true)
     {
         detection_enabled = msg->spin_observer;
+        *target_id = msg->tag_id;
+        RCLCPP_INFO(nh_->get_logger(), "Set target tag ID to %d", *target_id);
         for (auto const& camera : cameras){
             camera_map[camera]->detection_enabled = true;
         }
@@ -106,10 +119,11 @@ void ContinuousDetector::ApriltagToggleCallback(
         detection_enabled = false;
         for (auto const& camera : cameras){
             camera_map[camera]->detection_enabled = false;
-            if (camera_map[camera]->tag_detected) {
+            if (target_tag_detected_map->at(camera)) {
                 tag_detected = true;
-                camera_map[camera]->tag_detected = false;
             }
+            target_tag_detected_map->at(camera) = false;
+            camera_map[camera]->tag_detected = false;
         }
         if (!tag_detected && camera_position == msg->camera_id){
             RCLCPP_WARN(nh_->get_logger(), "No tags detected, restarting");
