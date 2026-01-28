@@ -37,10 +37,13 @@ class CameraComponent
 {
 public:
     using AprilTagDetectionArray = apriltag_ros_interfaces::msg::AprilTagDetectionArray;
+    using ApriltagToggleMsg = lpv_interfaces::msg::ApriltagObserver;
     CameraComponent(
         std::shared_ptr<rclcpp::Node>,
         CameraPosition,
-        std::shared_ptr<TagDetector>
+        std::shared_ptr<TagDetector>,
+        std::shared_ptr<std::unordered_map<CameraPosition, bool>>,
+        std::shared_ptr<uint32_t>
     );
 
     void ImageCallback(const nvidia::isaac_ros::nitros::NitrosImageView & view);
@@ -60,8 +63,11 @@ private:
     cv_bridge::CvImagePtr cv_image_;
 
     CameraPosition camera_position_;
+    std::unordered_map<CameraPosition, std::string> camera_position_map;
     
     std::unordered_map<std::string, std::string> dir_map;
+    std::shared_ptr<std::unordered_map<CameraPosition, bool>> target_tag_detected_map_;
+    std::shared_ptr<uint32_t> target_id_;
     std::unordered_map<std::string, sensor_msgs::msg::CameraInfo::ConstSharedPtr> camera_info_map;
     sensor_msgs::msg::CameraInfo::ConstSharedPtr camera_info_;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
