@@ -51,6 +51,8 @@ public:
     void CameraInfoCallback(
         const sensor_msgs::msg::CameraInfo::ConstSharedPtr & msg);
 
+    float getLuminance(const cv_bridge::CvImagePtr& image);
+
     bool detection_enabled = false;
     bool tag_detected = false;
 

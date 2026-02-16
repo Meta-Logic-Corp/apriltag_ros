@@ -43,9 +43,50 @@ void CameraComponent::CameraInfoCallback(
     camera_info_ = msg;
 }
 
+float CameraComponent::getLuminance(
+    const cv_bridge::CvImagePtr& image)
+{
+    RCLCPP_WARN(nh_->get_logger(), "IDENTIFIER: LUMINANCE CALCULATED");
+    cv::Mat gray_image;
+    if (image->encoding == "mono8") {
+        gray_image = image->image;
+    } else if (image->encoding == "bgr8") {
+        cv::cvtColor(image->image, gray_image, cv::COLOR_BGR2GRAY);
+    } else if (image->encoding == "rgb8") {
+        cv::cvtColor(image->image, gray_image, cv::COLOR_RGB2GRAY);
+    } else {
+        RCLCPP_WARN(nh_->get_logger(), "Unsupported encoding: %s", image->encoding.c_str());
+        return 0.0f;
+    }
+
+    image_u8_t apriltag_image = { .width = gray_image.cols,
+                                    .height = gray_image.rows,
+                                    .stride = gray_image.cols,
+                                    .buf = gray_image.data
+    };
+
+    const size_t pixel_count = apriltag_image.height * apriltag_image.width;
+    if (pixel_count == 0) {
+        return 0.0f;
+    }
+
+    const uint8_t* data = apriltag_image.buf;
+
+    uint64_t sum = 0;
+    for (size_t i = 0; i < pixel_count; ++i) {
+        sum += data[i];
+    }
+
+    float mean_brightness =
+        static_cast<float>(sum) / static_cast<float>(pixel_count);
+
+    return mean_brightness / 255.0f;
+}
+
 void CameraComponent::ImageCallback (
     const nvidia::isaac_ros::nitros::NitrosImageView & view)
 {
+    // RCLCPP_WARN(nh_->get_logger(), "IDENTIFIER: IMAGE CALLBACK HIT");
     // Convert ROS's sensor_msgs::Image to cv_bridge::CvImagePtr in order to run
     // AprilTag 2 on the iamge
     if (!detection_enabled)
@@ -87,6 +128,13 @@ void CameraComponent::ImageCallback (
 
     // Publish detected tags in the image by AprilTag 2
     AprilTagDetectionArray apriltag_msg = tag_detector_->detectTags(cv_image_, camera_info_);
+    if (!apriltag_msg.detections.empty()) {
+            float exposure = getLuminance(cv_image_);
+            for (auto & detection : apriltag_msg.detections) {
+                detection.exposure = exposure;
+            }
+        }
+    // RCLCPP_WARN(nh_->get_logger(), "IDENTIFIER: TAG DETECTION PUBLISHED");
     tag_detections_publisher_->publish(apriltag_msg);
     if (apriltag_msg.detections.size() > 0){
         tag_detected = true;
