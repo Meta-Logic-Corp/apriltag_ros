@@ -126,8 +126,8 @@ void ContinuousDetector::ApriltagToggleCallback(
             camera_map[camera]->tag_detected = false;
         }
         if (!tag_detected && camera_position == msg->camera_id){
-            RCLCPP_WARN(nh_->get_logger(), "No tags detected, restarting");
-            camera_reset_publisher_->publish(std_msgs::msg::Bool());
+            RCLCPP_WARN(nh_->get_logger(), "No tags detected, restarting -- Temp Disabled");
+            // camera_reset_publisher_->publish(std_msgs::msg::Bool());
         }
     }
 }
