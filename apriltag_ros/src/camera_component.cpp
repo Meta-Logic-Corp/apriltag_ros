@@ -16,11 +16,17 @@ CameraComponent::CameraComponent(
     {
     std::string tag_detections_topic = nh_->get_parameter("tag_detections_topic").as_string();
     std::string image_topic = nh_->get_parameter("image_topic").as_string();
+    draw_tag_detections_image_ = nh_->get_parameter("publish_tag_detections_image").as_bool();
 
     camera_position_map.insert({CameraPosition::FRONT, "front"});
     camera_position_map.insert({CameraPosition::BACK, "back"});
     camera_position_map.insert({CameraPosition::LEFT, "left"});
     camera_position_map.insert({CameraPosition::RIGHT, "right"});
+
+    it_ = std::shared_ptr<image_transport::ImageTransport>(
+        new image_transport::ImageTransport(nh_));
+
+    std::string tag_detections_image_topic = std::string("/") + camera_position_map.at(camera_position_) + std::string("/tag_detections_image");
 
     nitros_sub_ = std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosImageView>>(
@@ -35,6 +41,11 @@ CameraComponent::CameraComponent(
     tag_detections_publisher_ = nh_->create_publisher<
         apriltag_ros_interfaces::msg::AprilTagDetectionArray>(
         std::string("/") + camera_position_map.at(camera_position_).c_str() + std::string("/") + tag_detections_topic, 10);
+
+    if (draw_tag_detections_image_)
+    {
+        tag_detections_image_publisher_ = it_->advertise(tag_detections_image_topic, 1);
+    }
     }
 
 void CameraComponent::CameraInfoCallback(
@@ -96,5 +107,10 @@ void CameraComponent::ImageCallback (
                 target_tag_detected_map_->at(camera_position_) = true;
             }
         }
+    }
+    if (draw_tag_detections_image_)
+    {
+        tag_detector_->drawDetections(cv_image_);
+        tag_detections_image_publisher_.publish(cv_image_->toImageMsg());
     }
 }

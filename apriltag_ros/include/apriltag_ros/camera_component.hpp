@@ -56,10 +56,10 @@ public:
 
 private:
     rclcpp::Node::SharedPtr nh_;
+    bool draw_tag_detections_image_ = false;
 
     std::mutex detection_mutex_;
     std::shared_ptr<TagDetector> tag_detector_;
-    bool draw_tag_detections_image_;
     cv_bridge::CvImagePtr cv_image_;
 
     CameraPosition camera_position_;
@@ -74,6 +74,7 @@ private:
     std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosImageView>> nitros_sub_;
     std::shared_ptr<image_transport::ImageTransport> it_;
+    image_transport::Publisher tag_detections_image_publisher_;
     rclcpp::Publisher<apriltag_ros_interfaces::msg::AprilTagDetectionArray>::SharedPtr tag_detections_publisher_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr camera_reset_publisher_;
 };
